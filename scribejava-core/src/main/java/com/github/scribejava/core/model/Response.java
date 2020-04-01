@@ -20,6 +20,7 @@ public class Response implements Closeable {
     private final Map<String, String> headers;
     private String body;
     private InputStream stream;
+    private Closeable[] closeables;
 
     private Response(int code, String message, Map<String, String> headers) {
         this.code = code;
@@ -27,9 +28,11 @@ public class Response implements Closeable {
         this.headers = headers;
     }
 
-    public Response(int code, String message, Map<String, String> headers, InputStream stream) {
+    public Response(int code, String message, Map<String, String> headers, InputStream stream,
+            Closeable... closeables) {
         this(code, message, headers);
         this.stream = stream;
+        this.closeables = closeables;
     }
 
     public Response(int code, String message, Map<String, String> headers, String body) {
@@ -124,8 +127,20 @@ public class Response implements Closeable {
 
     @Override
     public void close() throws IOException {
-        if (stream != null) {
-            stream.close();
+        IOException ioException = null;
+        if (closeables != null) {
+            for (Closeable closeable : closeables) {
+                try {
+                    closeable.close();
+                } catch (IOException ioE) {
+                    if (ioException != null) {
+                        ioException = ioE;
+                    }
+                }
+            }
+        }
+        if (ioException != null) {
+            throw ioException;
         }
     }
 }
